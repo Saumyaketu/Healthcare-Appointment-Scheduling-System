@@ -14,6 +14,8 @@ export type FeeStatus = "PAID" | "DUE";
 export interface User {
   id: string;
   email: string;
+  passwordHash: string;
+  fullName: string;
   phone: string;
   role: Role;
   createdAt: string;
@@ -22,7 +24,7 @@ export interface User {
 export interface Patient {
   id: string;
   userId: string;
-  patientCode: string; // e.g. P-10023
+  patientCode: string; // e.g. P-30412
   fullName: string;
   dob?: string;
   age: number;
@@ -86,4 +88,17 @@ export interface Appointment {
   clinicalSummary?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface AuthSession {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    phone: string;
+    role: Role;
+  };
+  doctorProfile?: Doctor;
+  patientProfile?: Patient;
+  token: string;
 }

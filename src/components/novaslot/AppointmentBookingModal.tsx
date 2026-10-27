@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Doctor, AvailabilitySession, Appointment } from "@/lib/types";
+import React, { useState, useEffect } from "react";
+import { Doctor, AvailabilitySession, Appointment, AuthSession } from "@/lib/types";
 import {
   Calendar,
   Clock,
@@ -10,6 +10,7 @@ import {
   X,
   Stethoscope,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ interface AppointmentBookingModalProps {
   onClose: () => void;
   doctors: Doctor[];
   sessions: AvailabilitySession[];
+  currentUser?: AuthSession | null;
   onBookingSuccess: (appointment: Appointment) => void;
 }
 
@@ -26,6 +28,7 @@ export function AppointmentBookingModal({
   onClose,
   doctors,
   sessions,
+  currentUser,
   onBookingSuccess,
 }: AppointmentBookingModalProps) {
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(
@@ -44,11 +47,27 @@ export function AppointmentBookingModal({
     null
   );
 
+  const isPatientLoggedIn = currentUser?.user.role === "PATIENT";
+
+  // Pre-fill user data if logged in
+  useEffect(() => {
+    if (currentUser && currentUser.user.role === "PATIENT") {
+      setPatientName(currentUser.user.fullName);
+      setPatientPhone(currentUser.user.phone);
+      if (currentUser.patientProfile?.age) {
+        setPatientAge(currentUser.patientProfile.age);
+      }
+      if (currentUser.patientProfile?.gender) {
+        setPatientGender(currentUser.patientProfile.gender as any);
+      }
+    }
+  }, [currentUser, isOpen]);
+
   const doctorSessions = sessions.filter(
     (s) => s.doctorId === (selectedDoctorId || doctors[0]?.id)
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (doctorSessions.length > 0 && !selectedSessionId) {
       setSelectedSessionId(doctorSessions[0].id);
     }
@@ -110,9 +129,11 @@ export function AppointmentBookingModal({
 
   const handleResetAndClose = () => {
     setConfirmedBooking(null);
-    setPatientName("");
-    setPatientPhone("");
-    setPatientAge("");
+    if (!isPatientLoggedIn) {
+      setPatientName("");
+      setPatientPhone("");
+      setPatientAge("");
+    }
     setNotes("");
     setError(null);
     onClose();
@@ -132,7 +153,7 @@ export function AppointmentBookingModal({
                 {confirmedBooking ? "Slot Confirmed" : "Book OPD Appointment"}
               </h2>
               <p className="text-[11px] text-muted-foreground">
-                NovaSlot Scheduling System
+                NovaSlot Healthcare Scheduling
               </p>
             </div>
           </div>
@@ -195,7 +216,7 @@ export function AppointmentBookingModal({
               </div>
 
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-blue-900 dark:text-blue-300 text-[11px] text-left">
-                ℹ️ <strong>Live Dispatch:</strong> Your slot has been synced to the hospital OPD desk. You can monitor the real-time queue from your portal.
+                ℹ️ <strong>Live Dispatch:</strong> Your slot has been dispatched to the hospital OPD desk. You can monitor the real-time queue from your portal.
               </div>
 
               <button
@@ -294,7 +315,7 @@ export function AppointmentBookingModal({
                             </span>
                           </div>
                           <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-primary" />
+                            <Clock className="w-3.5 h-3.5 text-primary" />
                             {sess.startTime} - {sess.endTime}
                           </div>
                         </div>
@@ -306,9 +327,17 @@ export function AppointmentBookingModal({
 
               {/* Patient Information Form */}
               <div className="space-y-2 pt-2 border-t border-border">
-                <h4 className="font-bold text-foreground text-xs uppercase tracking-wide">
-                  Patient Details
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-foreground text-xs uppercase tracking-wide">
+                    Patient Details
+                  </h4>
+                  {isPatientLoggedIn && (
+                    <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      Verified Patient Account
+                    </span>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="space-y-1">
@@ -320,8 +349,9 @@ export function AppointmentBookingModal({
                       required
                       placeholder="Enter full name"
                       value={patientName}
+                      disabled={isPatientLoggedIn}
                       onChange={(e) => setPatientName(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs focus:ring-2 focus:ring-primary focus:outline-none"
+                      className="w-full px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-75 disabled:bg-muted/50"
                     />
                   </div>
 
@@ -334,8 +364,9 @@ export function AppointmentBookingModal({
                       required
                       placeholder="10-digit phone number"
                       value={patientPhone}
+                      disabled={isPatientLoggedIn}
                       onChange={(e) => setPatientPhone(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs focus:ring-2 focus:ring-primary focus:outline-none"
+                      className="w-full px-3 py-1.5 rounded-lg border border-border bg-background text-foreground text-xs focus:ring-2 focus:ring-primary focus:outline-none disabled:opacity-75 disabled:bg-muted/50"
                     />
                   </div>
                 </div>

@@ -1,4 +1,58 @@
-import { Doctor, AvailabilitySession, Appointment } from "./types";
+import { Doctor, AvailabilitySession, Appointment, User, Patient } from "./types";
+import { hashPassword } from "./auth-utils";
+
+export const INITIAL_USERS: User[] = [
+  {
+    id: "usr-admin-1",
+    email: "admin@metrocare.com",
+    passwordHash: hashPassword("admin123"),
+    fullName: "Reception Desk Admin",
+    phone: "+91 98000 00001",
+    role: "ADMIN",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "usr-doc-1",
+    email: "doctor@metrocare.com",
+    passwordHash: hashPassword("doctor123"),
+    fullName: "Dr. Rajesh Sharma",
+    phone: "+91 98000 00002",
+    role: "DOCTOR",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "usr-doc-2",
+    email: "doctor2@metrocare.com",
+    passwordHash: hashPassword("doctor123"),
+    fullName: "Dr. Ananya Sen",
+    phone: "+91 98000 00003",
+    role: "DOCTOR",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "usr-pat-1",
+    email: "patient@metrocare.com",
+    passwordHash: hashPassword("patient123"),
+    fullName: "Harish Pillai",
+    phone: "+91 98201 11223",
+    role: "PATIENT",
+    createdAt: new Date().toISOString(),
+  },
+];
+
+export const INITIAL_PATIENTS: Patient[] = [
+  {
+    id: "pat-101",
+    userId: "usr-pat-1",
+    patientCode: "P-30412",
+    fullName: "Harish Pillai",
+    age: 58,
+    gender: "M",
+    phone: "+91 98201 11223",
+    address: "24 Park Avenue, Central District",
+    emergencyContact: "+91 98201 99887",
+  },
+];
 
 export const INITIAL_DOCTORS: Doctor[] = [
   {

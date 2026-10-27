@@ -1,29 +1,52 @@
 "use client";
 
 import React, { useState } from "react";
-import { Appointment } from "@/lib/types";
+import { Appointment, AuthSession } from "@/lib/types";
 import {
   CalendarCheck,
   Clock,
   User,
   Receipt,
   FileText,
+  ShieldAlert,
 } from "lucide-react";
 
 interface PatientAppointmentsViewProps {
   appointments: Appointment[];
+  currentUser?: AuthSession | null;
   onCancelAppointment: (id: string) => void;
   onOpenBooking: () => void;
 }
 
 export function PatientAppointmentsView({
   appointments,
+  currentUser,
   onCancelAppointment,
   onOpenBooking,
 }: PatientAppointmentsViewProps) {
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
 
-  const filteredAppointments = appointments.filter((apt) => {
+  // Strict Least Privilege:
+  // If logged in as patient, only display appointments belonging to this patient!
+  const userAppointments = React.useMemo(() => {
+    if (currentUser?.user.role === "PATIENT") {
+      const patientPhone = currentUser.user.phone.replace(/[^0-9]/g, "");
+      const patientName = currentUser.user.fullName.toLowerCase().trim();
+
+      return appointments.filter((apt) => {
+        const aptPhone = apt.patientPhone.replace(/[^0-9]/g, "");
+        const aptName = apt.patientName.toLowerCase().trim();
+        return (
+          apt.patientId === currentUser.patientProfile?.id ||
+          (patientPhone && aptPhone && (aptPhone.endsWith(patientPhone) || patientPhone.endsWith(aptPhone))) ||
+          aptName === patientName
+        );
+      });
+    }
+    return appointments;
+  }, [appointments, currentUser]);
+
+  const filteredAppointments = userAppointments.filter((apt) => {
     if (filter === "ACTIVE") {
       return apt.status === "CONFIRMED" || apt.status === "IN_CONSULT" || apt.status === "PENDING";
     }
@@ -42,7 +65,9 @@ export function PatientAppointmentsView({
             My Appointments & Live OPD Tokens
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Monitor real-time physician queue progress, issued tokens, and consult notes
+            {currentUser?.user.role === "PATIENT"
+              ? `Personal appointments and token records for ${currentUser.user.fullName}`
+              : "Monitor real-time physician queue progress, issued tokens, and consult notes"}
           </p>
         </div>
 
@@ -54,7 +79,7 @@ export function PatientAppointmentsView({
                 filter === "ALL" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground"
               }`}
             >
-              All ({appointments.length})
+              All ({userAppointments.length})
             </button>
             <button
               onClick={() => setFilter("ACTIVE")}
@@ -89,7 +114,9 @@ export function PatientAppointmentsView({
           <CalendarCheck className="w-12 h-12 mx-auto text-muted-foreground/40 mb-3" />
           <h3 className="text-sm font-bold text-foreground">No bookings found</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-            You don&apos;t have any active or past appointments in this view.
+            {currentUser?.user.role === "PATIENT"
+              ? "You do not have any appointments under this account."
+              : "No appointments matching this filter."}
           </p>
           <button
             onClick={onOpenBooking}

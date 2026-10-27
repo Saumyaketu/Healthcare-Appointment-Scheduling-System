@@ -1,36 +1,48 @@
 "use client";
 
 import React from "react";
-import { AvailabilitySession } from "@/lib/types";
+import { AvailabilitySession, AuthSession } from "@/lib/types";
 import { Clock, AlertTriangle, Users } from "lucide-react";
 
 interface DoctorSessionsListProps {
   sessions: AvailabilitySession[];
   selectedSessionId: string;
+  currentUser?: AuthSession | null;
   onSelectSession: (session: AvailabilitySession) => void;
 }
 
 export function DoctorSessionsList({
   sessions,
   selectedSessionId,
+  currentUser,
   onSelectSession,
 }: DoctorSessionsListProps) {
+  // If logged in as doctor, filter sessions strictly to this doctor
+  const displayedSessions =
+    currentUser?.user.role === "DOCTOR" && currentUser.doctorProfile
+      ? sessions.filter((s) => s.doctorId === currentUser.doctorProfile?.id)
+      : sessions;
+
   return (
     <div className="w-80 border-r border-border bg-card/40 flex flex-col shrink-0 overflow-y-auto">
       <div className="p-3 border-b border-border bg-muted/20">
         <h2 className="text-sm font-bold text-foreground flex items-center justify-between">
-          <span>Active OPD Sessions</span>
+          <span>
+            {currentUser?.user.role === "DOCTOR" ? "My Sessions" : "Active OPD Sessions"}
+          </span>
           <span className="text-xs font-normal text-muted-foreground">
-            {sessions.length} active
+            {displayedSessions.length} active
           </span>
         </h2>
         <p className="text-[11px] text-muted-foreground mt-0.5">
-          Select a physician session to monitor the live token queue
+          {currentUser?.user.role === "DOCTOR"
+            ? "Your designated OPD timetable & queue"
+            : "Select a physician session to monitor the live token queue"}
         </p>
       </div>
 
       <div className="divide-y divide-border">
-        {sessions.map((session) => {
+        {displayedSessions.map((session) => {
           const isSelected = session.id === selectedSessionId;
 
           return (
