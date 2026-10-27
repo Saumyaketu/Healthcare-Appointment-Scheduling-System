@@ -13,3 +13,15 @@ Desktop.ini
 *.log
 tmp/
 temp/
+node_modules/
+
+# Next.js build
+.next/
+out/
+build/
+dist/
+
+# Local data & environment
+.env
+.env.local
+.data-store.json
