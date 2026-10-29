@@ -1,0 +1,207 @@
+// Prisma Schema for Healthcare Appointment & Scheduling System (NovaSlot)
+// Implements core relational ER Diagram specifications
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  IN_CONSULT
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  NORMAL
+  EMERGENCY
+}
+
+enum FeeStatus {
+  PAID
+  DUE
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  phone        String
+  role         Role      @default(PATIENT)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  patient      Patient?
+  doctor       Doctor?
+
+  @@map("users")
+}
+
+model Patient {
+  id               String        @id @default(uuid())
+  userId           String        @unique @map("user_id")
+  patientCode      String        @unique @map("patient_code")
+  fullName         String        @map("full_name")
+  dob              DateTime?
+  gender           String
+  phone            String
+  address          String?
+  emergencyContact String?       @map("emergency_contact")
+
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments     Appointment[]
+
+  @@map("patients")
+}
+
+model Doctor {
+  id              String         @id @default(uuid())
+  userId          String         @unique @map("user_id")
+  fullName        String         @map("full_name")
+  department      String
+  specialization  String
+  licenseNumber   String         @unique @map("license_number")
+  consultationFee Decimal        @map("consultation_fee")
+  roomNumber      String         @map("room_number")
+  qualifications  String?
+  isAvailable     Boolean        @default(true) @map("is_available")
+
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilities  Availability[]
+  appointments    Appointment[]
+
+  @@map("doctors")
+}
+
+model Availability {
+  id             String        @id @default(uuid())
+  doctorId       String        @map("doctor_id")
+  sessionDate    DateTime      @map("session_date")
+  sessionTitle   String        @default("Consultation Session") @map("session_title")
+  sessionType    String        @default("Token Session") @map("session_type")
+  startTime      String        @map("start_time")
+  endTime        String        @map("end_time")
+  maxCapacity    Int           @default(20) @map("max_capacity")
+  walkInCapacity Int           @default(5) @map("walk_in_capacity")
+  walkInUsed     Int           @default(0) @map("walk_in_used")
+  bookedCount    Int           @default(0) @map("booked_count")
+  waitingCount   Int           @default(0) @map("waiting_count")
+  isRunningLate  Boolean       @default(false) @map("is_running_late")
+  delayMinutes   Int           @default(0) @map("delay_minutes")
+
+  doctor         Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointments   Appointment[]
+
+  @@map("availabilities")
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  tokenNumber     Int               @map("token_number")
+  patientId       String            @map("patient_id")
+  doctorId        String            @map("doctor_id")
+  availabilityId  String            @map("availability_id")
+  appointmentDate DateTime          @map("appointment_date")
+  startTime       String?           @map("start_time")
+  status          AppointmentStatus @default(CONFIRMED)
+  priority        Priority          @default(NORMAL)
+  feeStatus       FeeStatus         @default(PAID) @map("fee_status")
+  isWalkIn        Boolean           @default(false) @map("is_walk_in")
+  notes           String?
+  clinicalSummary String?           @map("clinical_summary")
+  cancellationReason String?        @map("cancellation_reason")
+  cancelledAt     DateTime?         @map("cancelled_at")
+  rescheduledAt   DateTime?         @map("rescheduled_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  availability    Availability      @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  payments        Payment[]
+  refunds         Refund[]
+  notifications   Notification[]
+
+  @@map("appointments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model Payment {
+  id               String        @id @default(uuid())
+  appointmentId    String        @map("appointment_id")
+  amount           Decimal
+  currency         String        @default("INR")
+  gateway          String        @default("RAZORPAY")
+  gatewayOrderId   String        @map("gateway_order_id")
+  gatewayPaymentId String?       @map("gateway_payment_id")
+  receiptNumber    String        @map("receipt_number")
+  status           PaymentStatus @default(PENDING)
+  failureReason    String?       @map("failure_reason")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  appointment      Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  refunds          Refund[]
+
+  @@map("payments")
+}
+
+model Refund {
+  id               String       @id @default(uuid())
+  paymentId        String       @map("payment_id")
+  appointmentId    String       @map("appointment_id")
+  amount           Decimal
+  originalAmount   Decimal      @map("original_amount")
+  deductionAmount  Decimal      @map("deduction_amount")
+  reason           String
+  status           RefundStatus @default(PENDING)
+  gatewayRefundId  String?      @map("gateway_refund_id")
+  initiatedAt      DateTime     @default(now()) @map("initiated_at")
+  processedAt      DateTime?    @map("processed_at")
+
+  payment          Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  appointment      Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@map("refunds")
+}
+
+model Notification {
+  id             String       @id @default(uuid())
+  appointmentId  String       @map("appointment_id")
+  recipientEmail String       @map("recipient_email")
+  recipientPhone String?      @map("recipient_phone")
+  channel        String       @default("EMAIL")
+  type           String
+  title          String
+  content        String
+  status         String       @default("PENDING")
+  scheduledFor   DateTime?    @map("scheduled_for")
+  sentAt         DateTime?    @map("sent_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  appointment    Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
