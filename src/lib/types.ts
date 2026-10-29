@@ -75,6 +75,7 @@ export interface Appointment {
   patientAge: number;
   patientGender: string;
   patientPhone: string;
+  patientEmail?: string;
   doctorId: string;
   doctorName: string;
   availabilityId: string;
@@ -83,11 +84,112 @@ export interface Appointment {
   status: AppointmentStatus;
   priority: Priority;
   feeStatus: FeeStatus;
+  consultationFee?: number;
   isWalkIn: boolean;
   notes?: string;
   clinicalSummary?: string;
+  paymentId?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: Role;
+  refundStatus?: "NONE" | "PENDING" | "PROCESSED" | "FAILED" | "NOT_APPLICABLE";
+  rescheduledFromSessionId?: string;
+  rescheduledAt?: string;
+  pendingExpiresAt?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export type PaymentGatewayType = "RAZORPAY" | "STRIPE" | "CASH";
+
+export type PaymentStatus =
+  | "PENDING"
+  | "PAID"
+  | "FAILED"
+  | "REFUNDED"
+  | "PARTIALLY_REFUNDED"
+  | "ABANDONED";
+
+export interface PaymentRecord {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  patientEmail?: string;
+  doctorId: string;
+  doctorName: string;
+  amount: number; // in INR rupees
+  currency: string;
+  gateway: PaymentGatewayType;
+  gatewayOrderId: string;
+  gatewayPaymentId?: string;
+  gatewaySignature?: string;
+  receiptNumber: string;
+  status: PaymentStatus;
+  failureReason?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type RefundStatus = "PENDING" | "PROCESSED" | "FAILED";
+
+export interface RefundRecord {
+  id: string;
+  paymentId: string;
+  appointmentId: string;
+  patientId: string;
+  patientName: string;
+  originalAmount: number;
+  refundAmount: number;
+  deductionAmount: number;
+  refundPercentage: number;
+  reason: string;
+  status: RefundStatus;
+  gatewayRefundId?: string;
+  failureReason?: string;
+  initiatedBy: Role;
+  initiatedAt: string;
+  processedAt?: string;
+}
+
+export type NotificationChannel = "EMAIL" | "SMS" | "WHATSAPP";
+
+export type NotificationType =
+  | "BOOKING_CONFIRMATION"
+  | "PAYMENT_SUCCESS"
+  | "APPOINTMENT_RESCHEDULED"
+  | "APPOINTMENT_CANCELLED"
+  | "REFUND_PROCESSED"
+  | "REMINDER_24H"
+  | "REMINDER_2H";
+
+export type NotificationStatus = "PENDING" | "SENT" | "FAILED" | "CANCELLED";
+
+export interface NotificationRecord {
+  id: string;
+  appointmentId: string;
+  recipientEmail: string;
+  recipientPhone?: string;
+  recipientName: string;
+  channel: NotificationChannel;
+  type: NotificationType;
+  title: string;
+  content: string; // Plaintext or HTML preview
+  htmlContent?: string;
+  status: NotificationStatus;
+  scheduledFor?: string;
+  sentAt?: string;
+  createdAt: string;
+  error?: string;
+}
+
+export interface RefundPolicyEstimate {
+  originalFee: number;
+  refundAmount: number;
+  deductionAmount: number;
+  refundPercentage: number;
+  policyNote: string;
+  isEligible: boolean;
 }
 
 export interface AuthSession {

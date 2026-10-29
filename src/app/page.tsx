@@ -14,6 +14,7 @@ import { DoctorsDirectoryView } from "@/components/novaslot/DoctorsDirectoryView
 import { PatientAppointmentsView } from "@/components/novaslot/PatientAppointmentsView";
 import { DoctorScheduleView } from "@/components/novaslot/DoctorScheduleView";
 import { BillingView } from "@/components/novaslot/BillingView";
+import { NotificationsModal } from "@/components/novaslot/NotificationsModal";
 import {
   Doctor,
   AvailabilitySession,
@@ -45,6 +46,7 @@ export default function NovaSlotApp() {
   // Modals
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Restore authenticated session from localStorage on load
   useEffect(() => {
@@ -326,6 +328,7 @@ export default function NovaSlotApp() {
         activeDoctorId={activeDoctorId}
         currentUser={currentUser}
         onSearchClick={() => setIsBookingOpen(true)}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenAuth={() => {
           setAuthInitialMode("login");
           setScreenMode("auth");
@@ -361,6 +364,7 @@ export default function NovaSlotApp() {
               {/* Physician Sessions List */}
               <DoctorSessionsList
                 sessions={sessions}
+                appointments={appointments}
                 selectedSessionId={selectedSession?.id || ""}
                 currentUser={currentUser}
                 onSelectSession={(sess) => setSelectedSession(sess)}
@@ -369,6 +373,14 @@ export default function NovaSlotApp() {
               {/* Live OPD Queue Board */}
               <DoctorQueueBoard
                 session={selectedSession}
+                selectedDate={selectedSession?.sessionDate}
+                doctorName={
+                  selectedSession
+                    ? selectedSession.doctorName
+                    : currentUser?.doctorProfile
+                    ? currentUser.doctorProfile.fullName
+                    : undefined
+                }
                 appointments={appointments}
                 onUpdateStatus={handleUpdateStatus}
                 onToggleFee={handleToggleFee}
@@ -392,9 +404,11 @@ export default function NovaSlotApp() {
           {activeTab === "my-appointments" && (currentRole === "PATIENT" || currentRole === "ADMIN") && (
             <PatientAppointmentsView
               appointments={appointments}
+              sessions={sessions}
               currentUser={currentUser}
               onCancelAppointment={(id) => handleUpdateStatus(id, "CANCELLED")}
               onOpenBooking={() => setIsBookingOpen(true)}
+              onRefresh={fetchData}
             />
           )}
 
@@ -407,6 +421,7 @@ export default function NovaSlotApp() {
                   : sessions
               }
               doctors={doctors}
+              appointments={appointments}
               onSelectSession={(sess) => {
                 if (currentRole === "DOCTOR" || currentRole === "ADMIN") {
                   setSelectedSession(sess);
@@ -422,6 +437,7 @@ export default function NovaSlotApp() {
               appointments={appointments}
               doctors={doctors}
               onToggleFee={handleToggleFee}
+              onRefresh={fetchData}
             />
           )}
         </main>
@@ -443,6 +459,13 @@ export default function NovaSlotApp() {
         onClose={() => setIsWalkInOpen(false)}
         activeSession={selectedSession}
         onSuccess={handleBookingSuccess}
+      />
+
+      {/* Notifications & Reminders Modal */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        recipientEmail={currentUser?.user.role === "PATIENT" ? currentUser.user.email : undefined}
       />
     </div>
   );

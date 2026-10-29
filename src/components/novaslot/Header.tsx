@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Building2, Search, Zap, LogIn, LogOut } from "lucide-react";
+import { Building2, Search, Zap, LogIn, LogOut, Bell } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { Role, AuthSession } from "@/lib/types";
 
@@ -11,6 +11,7 @@ interface HeaderProps {
   currentUser?: AuthSession | null;
   onRoleChange?: (role: Role, doctorId?: string) => void;
   onSearchClick?: () => void;
+  onOpenNotifications?: () => void;
   onOpenAuth: () => void;
   onLogout: () => void;
 }
@@ -18,6 +19,7 @@ interface HeaderProps {
 export function Header({
   currentUser,
   onSearchClick,
+  onOpenNotifications,
   onOpenAuth,
   onLogout,
 }: HeaderProps) {
@@ -58,8 +60,20 @@ export function Header({
       </div>
 
       {/* Right Controls & User Session */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <ThemeToggle />
+
+        {/* Notification Activity Center Button */}
+        {currentUser && (
+          <button
+            onClick={onOpenNotifications}
+            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted relative transition-colors"
+            title="Notification & Reminders Activity"
+          >
+            <Bell className="w-4 h-4" />
+            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary animate-pulse" />
+          </button>
+        )}
 
         {/* User Account / Auth Section */}
         {currentUser ? (

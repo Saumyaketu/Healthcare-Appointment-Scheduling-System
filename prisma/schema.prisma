@@ -120,11 +120,88 @@ model Appointment {
   isWalkIn        Boolean           @default(false) @map("is_walk_in")
   notes           String?
   clinicalSummary String?           @map("clinical_summary")
+  cancellationReason String?        @map("cancellation_reason")
+  cancelledAt     DateTime?         @map("cancelled_at")
+  rescheduledAt   DateTime?         @map("rescheduled_at")
   createdAt       DateTime          @default(now()) @map("created_at")
 
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor          Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   availability    Availability      @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  payments        Payment[]
+  refunds         Refund[]
+  notifications   Notification[]
 
   @@map("appointments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model Payment {
+  id               String        @id @default(uuid())
+  appointmentId    String        @map("appointment_id")
+  amount           Decimal
+  currency         String        @default("INR")
+  gateway          String        @default("RAZORPAY")
+  gatewayOrderId   String        @map("gateway_order_id")
+  gatewayPaymentId String?       @map("gateway_payment_id")
+  receiptNumber    String        @map("receipt_number")
+  status           PaymentStatus @default(PENDING)
+  failureReason    String?       @map("failure_reason")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  appointment      Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  refunds          Refund[]
+
+  @@map("payments")
+}
+
+model Refund {
+  id               String       @id @default(uuid())
+  paymentId        String       @map("payment_id")
+  appointmentId    String       @map("appointment_id")
+  amount           Decimal
+  originalAmount   Decimal      @map("original_amount")
+  deductionAmount  Decimal      @map("deduction_amount")
+  reason           String
+  status           RefundStatus @default(PENDING)
+  gatewayRefundId  String?      @map("gateway_refund_id")
+  initiatedAt      DateTime     @default(now()) @map("initiated_at")
+  processedAt      DateTime?    @map("processed_at")
+
+  payment          Payment      @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  appointment      Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@map("refunds")
+}
+
+model Notification {
+  id             String       @id @default(uuid())
+  appointmentId  String       @map("appointment_id")
+  recipientEmail String       @map("recipient_email")
+  recipientPhone String?      @map("recipient_phone")
+  channel        String       @default("EMAIL")
+  type           String
+  title          String
+  content        String
+  status         String       @default("PENDING")
+  scheduledFor   DateTime?    @map("scheduled_for")
+  sentAt         DateTime?    @map("sent_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  appointment    Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
 }

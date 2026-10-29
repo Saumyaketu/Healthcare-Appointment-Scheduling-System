@@ -28,10 +28,12 @@ export async function POST(req: NextRequest) {
     const appointment = await db.createAppointment({
       patientName: validated.patientName,
       patientPhone: validated.patientPhone,
+      patientEmail: validated.patientEmail || undefined,
       patientAge: validated.patientAge,
       patientGender: validated.patientGender,
       doctorId: validated.doctorId,
       availabilityId: validated.availabilityId,
+      appointmentDate: validated.appointmentDate,
       priority: validated.priority,
       feeStatus: validated.feeStatus,
       notes: validated.notes,

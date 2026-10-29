@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Appointment, AuthSession } from "@/lib/types";
+import { Appointment, AuthSession, AvailabilitySession, PaymentRecord, RefundRecord } from "@/lib/types";
 import {
   CalendarCheck,
   Clock,
@@ -9,22 +9,40 @@ import {
   Receipt,
   FileText,
   ShieldAlert,
+  CalendarDays,
+  XCircle,
+  CheckCircle2,
+  AlertCircle,
+  Printer,
+  ChevronRight,
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { RescheduleModal } from "./RescheduleModal";
+import { CancellationModal } from "./CancellationModal";
+import { ReceiptModal } from "./ReceiptModal";
 
 interface PatientAppointmentsViewProps {
   appointments: Appointment[];
+  sessions?: AvailabilitySession[];
   currentUser?: AuthSession | null;
-  onCancelAppointment: (id: string) => void;
+  onCancelAppointment?: (id: string) => void;
   onOpenBooking: () => void;
+  onRefresh?: () => void;
 }
 
 export function PatientAppointmentsView({
   appointments,
+  sessions = [],
   currentUser,
-  onCancelAppointment,
   onOpenBooking,
+  onRefresh,
 }: PatientAppointmentsViewProps) {
   const [filter, setFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
+
+  // Modals state
+  const [rescheduleAppointment, setRescheduleAppointment] = useState<Appointment | null>(null);
+  const [cancellationAppointment, setCancellationAppointment] = useState<Appointment | null>(null);
+  const [receiptAppointment, setReceiptAppointment] = useState<Appointment | null>(null);
 
   // Strict Least Privilege:
   // If logged in as patient, only display appointments belonging to this patient!
@@ -66,7 +84,7 @@ export function PatientAppointmentsView({
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {currentUser?.user.role === "PATIENT"
-              ? `Personal appointments and token records for ${currentUser.user.fullName}`
+              ? `Personal appointments, digital tokens, and payment receipts for ${currentUser.user.fullName}`
               : "Monitor real-time physician queue progress, issued tokens, and consult notes"}
           </p>
         </div>
@@ -132,6 +150,8 @@ export function PatientAppointmentsView({
             const isConfirmed = apt.status === "CONFIRMED";
             const isCompleted = apt.status === "COMPLETED";
             const isCancelled = apt.status === "CANCELLED";
+            const isRefundProcessed = apt.refundStatus === "PROCESSED";
+            const isRefundPending = apt.refundStatus === "PENDING";
 
             return (
               <div
@@ -139,10 +159,12 @@ export function PatientAppointmentsView({
                 className={`bg-card border rounded-2xl p-5 shadow-xs transition-all ${
                   isInConsult
                     ? "border-primary bg-blue-50/20 dark:bg-blue-950/20 ring-1 ring-primary/40"
+                    : isCancelled
+                    ? "border-border/60 opacity-85"
                     : "border-border hover:border-border/80"
                 }`}
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   {/* Left: Token & Doctor Info */}
                   <div className="flex items-start gap-4">
                     <div
@@ -151,6 +173,8 @@ export function PatientAppointmentsView({
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : isCompleted
                           ? "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"
+                          : isCancelled
+                          ? "bg-muted text-muted-foreground border border-border"
                           : "bg-muted text-foreground border border-border"
                       }`}
                     >
@@ -168,17 +192,27 @@ export function PatientAppointmentsView({
                         <span className="text-xs text-muted-foreground font-mono">
                           ID: {apt.patientCode}
                         </span>
+                        {apt.rescheduledAt && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                            Rescheduled
+                          </span>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1">
                           <User className="w-3.5 h-3.5 text-primary" />
                           {apt.patientName} ({apt.patientAge} {apt.patientGender})
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
+                          <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                          {apt.appointmentDate}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 text-primary" />
-                          Est: {apt.estimatedTime || "Today"}
+                          Est: {apt.estimatedTime || "Morning"}
                         </span>
                       </div>
 
@@ -203,10 +237,11 @@ export function PatientAppointmentsView({
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                            Pending Review
+                            Pending Payment Confirmation
                           </span>
                         )}
 
+                        {/* Fee Status Badge */}
                         <span
                           className={`px-2 py-0.5 rounded text-[11px] font-medium flex items-center gap-1 ${
                             apt.feeStatus === "PAID"
@@ -215,53 +250,117 @@ export function PatientAppointmentsView({
                           }`}
                         >
                           <Receipt className="w-3 h-3" />
-                          {apt.feeStatus === "PAID" ? "Fee Paid" : "Fee Due at Desk"}
+                          {apt.feeStatus === "PAID" ? "Fee Paid (Online)" : "Fee Due at Desk"}
                         </span>
+
+                        {/* Refund Status Pill if cancelled */}
+                        {isCancelled && (
+                          <span
+                            className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 ${
+                              isRefundProcessed
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                : isRefundPending
+                                ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            <ShieldAlert className="w-3 h-3" />
+                            {isRefundProcessed
+                              ? "Refund Initiated to Source"
+                              : isRefundPending
+                              ? "Refund Processing"
+                              : "Non-Refundable Window"}
+                          </span>
+                        )}
                       </div>
 
-                      {apt.notes && (
-                        <p className="text-xs text-muted-foreground mt-2 bg-muted/40 p-2.5 rounded-lg border border-border/50">
-                          <strong className="text-foreground">Clinical Purpose:</strong> {apt.notes}
+                      {apt.cancellationReason && (
+                        <p className="text-xs text-destructive mt-1 bg-destructive/10 p-2 rounded-lg border border-destructive/20">
+                          <strong>Cancellation Reason:</strong> {apt.cancellationReason}
                         </p>
                       )}
 
-                      {apt.clinicalSummary && (
-                        <p className="text-xs text-foreground mt-1 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                          <strong className="text-emerald-800 dark:text-emerald-300">
-                            Physician Summary:
-                          </strong>{" "}
-                          {apt.clinicalSummary}
+                      {apt.notes && (
+                        <p className="text-xs text-muted-foreground mt-1 bg-muted/40 p-2.5 rounded-lg border border-border/50">
+                          <strong className="text-foreground">Clinical Purpose:</strong> {apt.notes}
                         </p>
                       )}
                     </div>
                   </div>
 
                   {/* Right Actions */}
-                  <div className="flex md:flex-col items-end justify-between md:justify-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-border">
+                  <div className="flex md:flex-col items-end justify-between md:justify-start gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-border">
+                    {/* Reschedule Button */}
                     {(isConfirmed || apt.status === "PENDING") && (
                       <button
-                        onClick={() => onCancelAppointment(apt.id)}
-                        className="px-3 py-1.5 rounded-lg border border-border text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                        onClick={() => setRescheduleAppointment(apt)}
+                        className="px-3 py-1.5 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-muted flex items-center gap-1.5 transition-colors"
+                      >
+                        <CalendarDays className="w-3.5 h-3.5 text-primary" />
+                        Reschedule Slot
+                      </button>
+                    )}
+
+                    {/* Cancel Button */}
+                    {(isConfirmed || apt.status === "PENDING") && (
+                      <button
+                        onClick={() => setCancellationAppointment(apt)}
+                        className="px-3 py-1.5 rounded-xl border border-destructive/30 text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors"
                       >
                         Cancel Slot
                       </button>
                     )}
 
-                    {isCompleted && (
-                      <button
-                        onClick={() => alert(`Prescription summary for Token #${apt.tokenNumber}`)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-foreground hover:bg-muted text-xs font-medium"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-primary" />
-                        Download Summary
-                      </button>
-                    )}
+                    {/* View Invoice / Receipt Button */}
+                    <button
+                      onClick={() => setReceiptAppointment(apt)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-card border border-border text-foreground hover:bg-muted text-xs font-medium transition-colors"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-primary" />
+                      View Receipt
+                    </button>
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleAppointment && (
+        <RescheduleModal
+          isOpen={Boolean(rescheduleAppointment)}
+          onClose={() => setRescheduleAppointment(null)}
+          appointment={rescheduleAppointment}
+          sessions={sessions}
+          onSuccess={() => {
+            setRescheduleAppointment(null);
+            if (onRefresh) onRefresh();
+          }}
+        />
+      )}
+
+      {/* Cancellation Modal with Refund Breakdown */}
+      {cancellationAppointment && (
+        <CancellationModal
+          isOpen={Boolean(cancellationAppointment)}
+          onClose={() => setCancellationAppointment(null)}
+          appointment={cancellationAppointment}
+          onSuccess={() => {
+            setCancellationAppointment(null);
+            if (onRefresh) onRefresh();
+          }}
+        />
+      )}
+
+      {/* Printable Receipt Modal */}
+      {receiptAppointment && (
+        <ReceiptModal
+          isOpen={Boolean(receiptAppointment)}
+          onClose={() => setReceiptAppointment(null)}
+          appointment={receiptAppointment}
+        />
       )}
     </div>
   );

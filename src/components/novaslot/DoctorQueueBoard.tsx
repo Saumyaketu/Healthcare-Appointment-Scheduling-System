@@ -17,10 +17,13 @@ import {
   Phone,
   AlertCircle,
   Receipt,
+  CalendarX2,
 } from "lucide-react";
 
 interface DoctorQueueBoardProps {
   session: AvailabilitySession | null;
+  selectedDate?: string;
+  doctorName?: string;
   appointments: Appointment[];
   onUpdateStatus: (appointmentId: string, status: AppointmentStatus) => void;
   onToggleFee: (appointmentId: string) => void;
@@ -31,6 +34,8 @@ interface DoctorQueueBoardProps {
 
 export function DoctorQueueBoard({
   session,
+  selectedDate,
+  doctorName,
   appointments,
   onUpdateStatus,
   onToggleFee,
@@ -43,11 +48,18 @@ export function DoctorQueueBoard({
 
   if (!session) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8 text-center text-muted-foreground">
-        <div>
-          <AlertCircle className="w-10 h-10 mx-auto text-muted-foreground/50 mb-2" />
-          <p className="text-sm font-medium">Select an active session from the left to view the queue</p>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-background">
+        <div className="w-16 h-16 rounded-2xl bg-muted/40 border border-border flex items-center justify-center mb-3">
+          <CalendarX2 className="w-8 h-8 text-muted-foreground/50" />
         </div>
+        <h3 className="text-base font-bold text-foreground">
+          {doctorName ? `No Schedule for ${doctorName}` : "No Schedule for this Date"}
+        </h3>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm">
+          {selectedDate
+            ? `There are no clinical consultation sessions or appointments scheduled on ${selectedDate}.`
+            : "Select a date with an active session from the side calendar to view the live queue."}
+        </p>
       </div>
     );
   }
